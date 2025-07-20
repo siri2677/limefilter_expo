@@ -195,15 +195,19 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({ navigation, route })
         })}
       </ScrollView>
       
-      <ScrollView style={styles.filterSliders} showsVerticalScrollIndicator={false} contentContainerStyle={{ alignItems: 'stretch', justifyContent: 'flex-start' }}>
+      <ScrollView
+        style={styles.filterSliders}
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: 'flex-start',
+        }}
+        showsVerticalScrollIndicator={false}
+      >
         {activeFilters.map(filter => (
           <FilterSlider
             key={filter.id}
             filter={filter}
-            onValueChange={(value) => {
-              console.log('Slider value changed:', filter.id, value);
-              handleFilterValueChange(filter.id, value);
-            }}
+            onValueChange={(value) => handleFilterValueChange(filter.id, value)}
           />
         ))}
       </ScrollView>
@@ -237,18 +241,18 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background, // 배경색 명확히 지정
   },
   header: {
-    height: 100, // 고정 높이로 변경
+    height: 100,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 0,
     paddingTop: 0,
-    margin: 0,
-    marginBottom: 0,
+    margin: 0
+
   },
   backButton: {
     padding: 0,
-    margin: 0,
+    margin: 0
   },
   headerCenter: {
     alignItems: 'center',
@@ -260,24 +264,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.text,
     margin: 0,
-    padding: 0,
+    padding: 0
   },
   headerSubtitle: {
     fontSize: 11,
     color: COLORS.textMuted,
     margin: 0,
-    padding: 0,
+    padding: 0
   },
   saveButton: {
     padding: 0,
-    margin: 0,
+    margin: 0
   },
   mediaContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     margin: 0,
     padding: 0,
-    marginBottom: 10, // 딱 10px 간격
+    marginBottom: 10
   },
   fileName: {
     textAlign: 'center',
@@ -294,14 +298,14 @@ const styles = StyleSheet.create({
     marginTop: 0,
     paddingTop: 10, // 딱 10px 간격
     marginBottom: 0,
-    paddingBottom: 0,
+    paddingBottom: 0
   },
   navButton: {
     padding: 0,
     margin: 0
   },
   navButtonDisabled: {
-    opacity: 0.3,
+    opacity: 0.3
   },
   navText: {
     flex: 1,
@@ -310,15 +314,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     margin: 0,
-    padding: 0,
+    padding: 0
   },
   filtersContainer: {
+    maxHeight: 300,
     flexDirection: 'column',
     paddingHorizontal: 0,
-    paddingTop: 0,
-    paddingBottom: 0,
-    margin: 0,
-    marginTop: 0,
+    marginTop: 5,
   },
   filtersTitle: {
     fontSize: 16,
@@ -328,9 +330,9 @@ const styles = StyleSheet.create({
     padding: 0
   },
   filterButtons: {
-    margin: 0,
     padding: 0,
-    height: 44, // 고정 높이 추가
+    marginTop: 5,
+    height: 60, // 고정 높이 추가
   },
   filterButton: {
     paddingHorizontal: 16,
@@ -360,8 +362,8 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   filterSliders: {
+    flexGrow: 1,
     margin: 0,
     padding: 0,
-    marginTop: 0,
   },
 }); 
