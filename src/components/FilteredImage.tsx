@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import {
   Canvas,
-  Image as SkiaImage,
+  Image,
   useImage,
   ColorMatrix,
   Blur,
@@ -27,80 +27,119 @@ export const FilteredImage: React.FC<FilteredImageProps> = ({
 }) => {
   const image = useImage(uri);
 
-  if (!image) {
-    return <View style={[styles.container, { width, height }]} />;
-  }
+  const identityMatrix = [
+    1, 0, 0, 0, 0,
+    0, 1, 0, 0, 0,
+    0, 0, 1, 0, 0,
+    0, 0, 0, 1, 0,
+  ];
 
-  const getColorMatrix = (): number[] | null => {
+  const brightnessMatrix = (v: number) => [
+    1, 0, 0, 0, v,
+    0, 1, 0, 0, v,
+    0, 0, 1, 0, v,
+    0, 0, 0, 1, 0,
+  ];
+
+  const contrastMatrix = (c: number) => {
+    const t = 0.5 * (1 - c);
+    return [
+      c, 0, 0, 0, t,
+      0, c, 0, 0, t,
+      0, 0, c, 0, t,
+      0, 0, 0, 1, 0,
+    ];
+  };
+
+  const saturationMatrix = (s: number) => {
+    const invS = 1 - s;
+    const R = 0.2126;
+    const G = 0.7152;
+    const B = 0.0722;
+    return [
+      R * invS + s, G * invS,     B * invS,     0, 0,
+      R * invS,     G * invS + s, B * invS,     0, 0,
+      R * invS,     G * invS,     B * invS + s, 0, 0,
+      0,            0,            0,            1, 0,
+    ];
+  };
+
+  const hueRotateMatrix = (angle: number) => {
+    const rad = (angle * Math.PI) / 180;
+    const cosA = Math.cos(rad);
+    const sinA = Math.sin(rad);
+    const lumR = 0.213;
+    const lumG = 0.715;
+    const lumB = 0.072;
+    return [
+      lumR + cosA * (1 - lumR) + sinA * (-lumR),
+      lumG + cosA * (-lumG) + sinA * (-lumG),
+      lumB + cosA * (-lumB) + sinA * (1 - lumB), 0, 0,
+
+      lumR + cosA * (-lumR) + sinA * 0.143,
+      lumG + cosA * (1 - lumG) + sinA * 0.140,
+      lumB + cosA * (-lumB) + sinA * (-0.283), 0, 0,
+
+      lumR + cosA * (-lumR) + sinA * (-(1 - lumR)),
+      lumG + cosA * (-lumG) + sinA * lumG,
+      lumB + cosA * (1 - lumB) + sinA * lumB, 0, 0,
+
+      0, 0, 0, 1, 0,
+    ];
+  };
+
+  const multiplyMatrix = (a: number[], b: number[]): number[] => {
+    const result = new Array(20).fill(0);
+    for (let row = 0; row < 4; row++) {
+      for (let col = 0; col < 5; col++) {
+        result[row * 5 + col] =
+          a[row * 5 + 0] * b[0 + col] +
+          a[row * 5 + 1] * b[5 + col] +
+          a[row * 5 + 2] * b[10 + col] +
+          a[row * 5 + 3] * b[15 + col];
+        if (col === 4) {
+          result[row * 5 + col] += a[row * 5 + 4];
+        }
+      }
+    }
+    return result;
+  };
+
+  const getColorMatrix = () => {
+    if (!image) return null;
     let matrix = identityMatrix;
 
-    filters.forEach((filter) => {
-      const value = filter.parameters?.value;
-
-      switch (filter.id) {
-        case 'brightness': {
-          const b = value;
-          const brightnessMatrix = [
-            1, 0, 0, 0, b,
-            0, 1, 0, 0, b,
-            0, 0, 1, 0, b,
-            0, 0, 0, 1, 0,
-          ];
-          matrix = multiplyColorMatrix(matrix, brightnessMatrix);
+    filters.forEach(f => {
+      switch (f.id) {
+        case 'brightness':
+          matrix = multiplyMatrix(matrix, brightnessMatrix(f.parameters.value));
           break;
-        }
-
-        case 'contrast': {
-          const c = value;
-          const t = 128 * (1 - c);
-          const contrastMatrix = [
-            c, 0, 0, 0, t,
-            0, c, 0, 0, t,
-            0, 0, c, 0, t,
-            0, 0, 0, 1, 0,
-          ];
-          matrix = multiplyColorMatrix(matrix, contrastMatrix);
+        case 'contrast':
+          matrix = multiplyMatrix(matrix, contrastMatrix(f.parameters.value));
           break;
-        }
-
-        case 'grayscale': {
-          const g = value;
-          const grayscaleMatrix = [
-            0.2126 + 0.7874 * (1 - g), 0.7152 - 0.7152 * (1 - g), 0.0722 - 0.0722 * (1 - g), 0, 0,
-            0.2126 - 0.2126 * (1 - g), 0.7152 + 0.2848 * (1 - g), 0.0722 - 0.0722 * (1 - g), 0, 0,
-            0.2126 - 0.2126 * (1 - g), 0.7152 - 0.7152 * (1 - g), 0.0722 + 0.9278 * (1 - g), 0, 0,
-            0, 0, 0, 1, 0,
-          ];
-          matrix = multiplyColorMatrix(matrix, grayscaleMatrix);
+        case 'saturation':
+          matrix = multiplyMatrix(matrix, saturationMatrix(f.parameters.value));
           break;
-        }
-
-        case 'invert': {
-          const invertMatrix = [
-            -1, 0, 0, 0, 255,
-            0, -1, 0, 0, 255,
-            0, 0, -1, 0, 255,
-            0, 0, 0, 1, 0,
-          ];
-          matrix = multiplyColorMatrix(matrix, invertMatrix);
+        case 'hue':
+          matrix = multiplyMatrix(matrix, hueRotateMatrix(f.parameters.value));
           break;
-        }
-
-        // 세피아, 색조, 채도 등은 여기에 추가
       }
     });
 
     return matrix;
   };
 
+  if (!image) {
+    return <View style={[styles.container, { width, height }]} />;
+  }
+
   const colorMatrix = getColorMatrix();
   const blurFilter = filters.find(f => f.id === 'blur');
-  const blurValue = blurFilter?.parameters?.value || 0;
 
   return (
-    <View style={[styles.container, { width, height }]}>
+    <View style={[styles.container, { width, height }]}> 
       <Canvas style={styles.canvas}>
-        <SkiaImage
+        <Image
           image={image}
           x={0}
           y={0}
@@ -109,35 +148,14 @@ export const FilteredImage: React.FC<FilteredImageProps> = ({
           fit="cover"
         >
           {colorMatrix && <ColorMatrix matrix={colorMatrix} />}
-          {blurValue > 0 && <Blur blur={blurValue} />}
-        </SkiaImage>
+          {blurFilter && blurFilter.parameters.value > 0 && (
+            <Blur blur={blurFilter.parameters.value} />
+          )}
+        </Image>
       </Canvas>
     </View>
   );
 };
-
-// 4x5 ColorMatrix 곱셈 (20x20)
-const multiplyColorMatrix = (a: number[], b: number[]): number[] => {
-  const out = new Array(20).fill(0);
-  for (let row = 0; row < 4; row++) {
-    for (let col = 0; col < 5; col++) {
-      out[row * 5 + col] =
-        a[row * 5 + 0] * b[0 + col] +
-        a[row * 5 + 1] * b[5 + col] +
-        a[row * 5 + 2] * b[10 + col] +
-        a[row * 5 + 3] * b[15 + col] +
-        (col === 4 ? a[row * 5 + 4] : 0); // bias 추가
-    }
-  }
-  return out;
-};
-
-const identityMatrix = [
-  1, 0, 0, 0, 0,
-  0, 1, 0, 0, 0,
-  0, 0, 1, 0, 0,
-  0, 0, 0, 1, 0,
-];
 
 const styles = StyleSheet.create({
   container: {

@@ -31,6 +31,9 @@ interface EditorScreenProps {
 }
 
 const { width: screenWidth } = Dimensions.get('window');
+const PREVIEW_HORIZONTAL_PADDING = 32; // 좌우 패딩 합
+const previewWidth = screenWidth - PREVIEW_HORIZONTAL_PADDING;
+const previewHeight = previewWidth * 3 / 4;
 
 export const EditorScreen: React.FC<EditorScreenProps> = ({ navigation, route }) => {
   const { mediaItems } = route.params;
@@ -44,11 +47,13 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({ navigation, route })
     setActiveFilters(prev => {
       const existingFilter = prev.find(f => f.id === filterId);
       if (existingFilter) {
+        // 이미 있으면 제거
         return prev.filter(f => f.id !== filterId);
       } else {
         const newFilter = getFilterById(filterId);
         if (newFilter) {
-          return [...prev, { ...newFilter }];
+          // 새로 추가할 때 맨 앞에 넣기
+          return [{ ...newFilter }, ...prev];
         }
         return prev;
       }
@@ -126,15 +131,15 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({ navigation, route })
         <WebFilteredImage
           uri={currentMedia.uri}
           filters={activeFilters}
-          width={screenWidth - 32}
-          height={(screenWidth - 32) * 0.75}
+          width={previewWidth}
+          height={previewHeight}
         />
       ) : (
         <FilteredImage
           uri={currentMedia.uri}
           filters={activeFilters}
-          width={screenWidth - 32}
-          height={(screenWidth - 32) * 0.75}
+          width={previewWidth}
+          height={previewHeight}
         />
       )}
     </ViewShot>
@@ -169,12 +174,17 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({ navigation, route })
       <Text style={styles.filtersTitle}>필터</Text>
       
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterButtons}>
-        {AVAILABLE_FILTERS.map(filter => {
+        {AVAILABLE_FILTERS.map((filter, idx) => {
           const isActive = activeFilters.some(f => f.id === filter.id);
+          const isLast = idx === AVAILABLE_FILTERS.length - 1;
           return (
             <TouchableOpacity
               key={filter.id}
-              style={[styles.filterButton, isActive && styles.filterButtonActive]}
+              style={[
+                styles.filterButton,
+                isActive && styles.filterButtonActive,
+                isLast && { marginRight: 0 }
+              ]}
               onPress={() => handleFilterToggle(filter.id)}
             >
               <Text style={[styles.filterButtonText, isActive && styles.filterButtonTextActive]}>
@@ -185,7 +195,7 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({ navigation, route })
         })}
       </ScrollView>
       
-      <ScrollView style={styles.filterSliders} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.filterSliders} showsVerticalScrollIndicator={false} contentContainerStyle={{ alignItems: 'stretch', justifyContent: 'flex-start' }}>
         {activeFilters.map(filter => (
           <FilterSlider
             key={filter.id}
@@ -221,48 +231,74 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingTop: 50, // 네비게이션 바 높이만큼 패딩 추가
+    flexDirection: 'column',
+    padding: 0,
+    margin: 0,
+    backgroundColor: COLORS.background, // 배경색 명확히 지정
   },
   header: {
+    height: 100, // 고정 높이로 변경
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    paddingTop: 8,
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    margin: 0,
+    marginBottom: 0,
   },
   backButton: {
-    padding: 8,
+    padding: 0,
+    margin: 0,
   },
   headerCenter: {
     alignItems: 'center',
+    margin: 0,
+    padding: 0
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '600',
     color: COLORS.text,
+    margin: 0,
+    padding: 0,
   },
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: COLORS.textMuted,
-    marginTop: 2,
+    margin: 0,
+    padding: 0,
   },
   saveButton: {
-    padding: 8,
+    padding: 0,
+    margin: 0,
   },
   mediaContainer: {
     alignItems: 'center',
-    paddingVertical: 8,
-    maxHeight: 300,
+    justifyContent: 'center',
+    margin: 0,
+    padding: 0,
+    marginBottom: 10, // 딱 10px 간격
+  },
+  fileName: {
+    textAlign: 'center',
+    fontSize: 15,
+    color: COLORS.textSecondary,
+    marginBottom: 8,
   },
   navigation: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 4,
+    margin: 0,
+    padding: 0,
+    marginTop: 0,
+    paddingTop: 10, // 딱 10px 간격
+    marginBottom: 0,
+    paddingBottom: 0,
   },
   navButton: {
-    padding: 8,
+    padding: 0,
+    margin: 0
   },
   navButtonDisabled: {
     opacity: 0.3,
@@ -271,30 +307,43 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
     color: COLORS.text,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
+    margin: 0,
+    padding: 0,
   },
   filtersContainer: {
-    flex: 1,
-    padding: 16,
+    flexDirection: 'column',
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
+    margin: 0,
+    marginTop: 0,
   },
   filtersTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: COLORS.text,
-    marginBottom: 16,
+    margin: 0,
+    padding: 0
   },
   filterButtons: {
-    marginBottom: 20,
+    margin: 0,
+    padding: 0,
+    height: 44, // 고정 높이 추가
   },
   filterButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 20,
+    minHeight: 32,
+    height: 36,
+    borderRadius: 16,
     backgroundColor: COLORS.surface,
-    marginRight: 8,
+    marginRight: 8, // 버튼 사이 가로 간격
     borderWidth: 1,
-    borderColor: COLORS.border,
+
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   filterButtonActive: {
     backgroundColor: COLORS.primary,
@@ -302,13 +351,17 @@ const styles = StyleSheet.create({
   },
   filterButtonText: {
     color: COLORS.textSecondary,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '500',
+    margin: 0,
+    padding: 0,
   },
   filterButtonTextActive: {
     color: COLORS.text,
   },
   filterSliders: {
-    flex: 1,
+    margin: 0,
+    padding: 0,
+    marginTop: 0,
   },
 }); 
