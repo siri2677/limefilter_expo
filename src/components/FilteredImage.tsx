@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import {
   Canvas,
-  Image,
+  Image as SkiaImage,
   useImage,
   ColorMatrix,
   Blur,
@@ -27,124 +27,117 @@ export const FilteredImage: React.FC<FilteredImageProps> = ({
 }) => {
   const image = useImage(uri);
 
-  const getColorMatrix = () => {
-    if (!image) return null;
-
-    console.log('Filters applied:', filters); // 디버깅용
-
-    // 여러 필터 조합 적용
-    let colorMatrix = [
-      1, 0, 0, 0,
-      0, 1, 0, 0,
-      0, 0, 1, 0,
-      0, 0, 0, 1,
-    ];
-
-    filters.forEach((filter) => {
-      switch (filter.id) {
-        case 'contrast':
-          const contrast = filter.parameters.value;
-          colorMatrix = [
-            contrast, 0, 0, 0,
-            0, contrast, 0, 0,
-            0, 0, contrast, 0,
-            0, 0, 0, 1,
-          ];
-          break;
-        case 'brightness':
-          const brightness = filter.parameters.value;
-          colorMatrix = [
-            1, 0, 0, brightness,
-            0, 1, 0, brightness,
-            0, 0, 1, brightness,
-            0, 0, 0, 1,
-          ];
-          break;
-        case 'saturation':
-          const saturation = filter.parameters.value;
-          colorMatrix = [
-            0.213 + 0.787 * saturation, 0.213 - 0.213 * saturation, 0.213 - 0.213 * saturation, 0,
-            0.715 - 0.715 * saturation, 0.715 + 0.285 * saturation, 0.715 - 0.715 * saturation, 0,
-            0.072 - 0.072 * saturation, 0.072 - 0.072 * saturation, 0.072 + 0.928 * saturation, 0,
-            0, 0, 0, 1,
-          ];
-          break;
-        case 'blackAndWhite':
-          if (filter.parameters.value > 0) {
-            colorMatrix = [
-              0.299, 0.587, 0.114, 0,
-              0.299, 0.587, 0.114, 0,
-              0.299, 0.587, 0.114, 0,
-              0, 0, 0, 1,
-            ];
-          }
-          break;
-        case 'sepia':
-          if (filter.parameters.value > 0) {
-            colorMatrix = [
-              0.393, 0.769, 0.189, 0,
-              0.349, 0.686, 0.168, 0,
-              0.272, 0.534, 0.131, 0,
-              0, 0, 0, 1,
-            ];
-          }
-          break;
-        case 'invert':
-          if (filter.parameters.value > 0) {
-            colorMatrix = [
-              -1, 0, 0, 1,
-              0, -1, 0, 1,
-              0, 0, -1, 1,
-              0, 0, 0, 1,
-            ];
-          }
-          break;
-      }
-    });
-
-    return colorMatrix;
-  };
-
   if (!image) {
     return <View style={[styles.container, { width, height }]} />;
   }
 
+  const getColorMatrix = (): number[] | null => {
+    let matrix = identityMatrix;
+
+    filters.forEach((filter) => {
+      const value = filter.parameters?.value;
+
+      switch (filter.id) {
+        case 'brightness': {
+          const b = value;
+          const brightnessMatrix = [
+            1, 0, 0, 0, b,
+            0, 1, 0, 0, b,
+            0, 0, 1, 0, b,
+            0, 0, 0, 1, 0,
+          ];
+          matrix = multiplyColorMatrix(matrix, brightnessMatrix);
+          break;
+        }
+
+        case 'contrast': {
+          const c = value;
+          const t = 128 * (1 - c);
+          const contrastMatrix = [
+            c, 0, 0, 0, t,
+            0, c, 0, 0, t,
+            0, 0, c, 0, t,
+            0, 0, 0, 1, 0,
+          ];
+          matrix = multiplyColorMatrix(matrix, contrastMatrix);
+          break;
+        }
+
+        case 'grayscale': {
+          const g = value;
+          const grayscaleMatrix = [
+            0.2126 + 0.7874 * (1 - g), 0.7152 - 0.7152 * (1 - g), 0.0722 - 0.0722 * (1 - g), 0, 0,
+            0.2126 - 0.2126 * (1 - g), 0.7152 + 0.2848 * (1 - g), 0.0722 - 0.0722 * (1 - g), 0, 0,
+            0.2126 - 0.2126 * (1 - g), 0.7152 - 0.7152 * (1 - g), 0.0722 + 0.9278 * (1 - g), 0, 0,
+            0, 0, 0, 1, 0,
+          ];
+          matrix = multiplyColorMatrix(matrix, grayscaleMatrix);
+          break;
+        }
+
+        case 'invert': {
+          const invertMatrix = [
+            -1, 0, 0, 0, 255,
+            0, -1, 0, 0, 255,
+            0, 0, -1, 0, 255,
+            0, 0, 0, 1, 0,
+          ];
+          matrix = multiplyColorMatrix(matrix, invertMatrix);
+          break;
+        }
+
+        // 세피아, 색조, 채도 등은 여기에 추가
+      }
+    });
+
+    return matrix;
+  };
+
   const colorMatrix = getColorMatrix();
   const blurFilter = filters.find(f => f.id === 'blur');
+  const blurValue = blurFilter?.parameters?.value || 0;
 
   return (
     <View style={[styles.container, { width, height }]}>
       <Canvas style={styles.canvas}>
-        <Image
+        <SkiaImage
           image={image}
           x={0}
           y={0}
           width={width}
           height={height}
           fit="cover"
-        />
-        {colorMatrix && (
-          <ColorMatrix matrix={colorMatrix} />
-        )}
-        {blurFilter && blurFilter.parameters.value > 0 && (
-          <Blur blur={blurFilter.parameters.value} />
-        )}
+        >
+          {colorMatrix && <ColorMatrix matrix={colorMatrix} />}
+          {blurValue > 0 && <Blur blur={blurValue} />}
+        </SkiaImage>
       </Canvas>
     </View>
   );
 };
 
-const multiplyMatrix = (a: number[], b: number[]): number[] => {
-  const result = new Array(16).fill(0);
-  for (let i = 0; i < 4; i++) {
-    for (let j = 0; j < 4; j++) {
-      for (let k = 0; k < 4; k++) {
-        result[i * 4 + j] += a[i * 5 + k] * b[k * 5 + j];
-      }
+// 4x5 ColorMatrix 곱셈 (20x20)
+const multiplyColorMatrix = (a: number[], b: number[]): number[] => {
+  const out = new Array(20).fill(0);
+  for (let row = 0; row < 4; row++) {
+    for (let col = 0; col < 5; col++) {
+      out[row * 5 + col] =
+        a[row * 5 + 0] * b[0 + col] +
+        a[row * 5 + 1] * b[5 + col] +
+        a[row * 5 + 2] * b[10 + col] +
+        a[row * 5 + 3] * b[15 + col] +
+        (col === 4 ? a[row * 5 + 4] : 0); // bias 추가
     }
   }
-  return result;
+  return out;
 };
+
+const identityMatrix = [
+  1, 0, 0, 0, 0,
+  0, 1, 0, 0, 0,
+  0, 0, 1, 0, 0,
+  0, 0, 0, 1, 0,
+];
 
 const styles = StyleSheet.create({
   container: {
@@ -154,4 +147,4 @@ const styles = StyleSheet.create({
   canvas: {
     flex: 1,
   },
-}); 
+});

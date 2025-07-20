@@ -17,6 +17,9 @@ import { FilterSlider } from '../components/FilterSlider';
 import { COLORS, GRADIENTS } from '../constants/colors';
 import { AVAILABLE_FILTERS, getFilterById } from '../constants/filters';
 import { MediaItem, Filter } from '../types';
+import ViewShot from 'react-native-view-shot';
+import * as MediaLibrary from 'expo-media-library';
+import { useRef } from 'react';
 
 interface EditorScreenProps {
   navigation: any;
@@ -33,6 +36,7 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({ navigation, route })
   const { mediaItems } = route.params;
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [activeFilters, setActiveFilters] = useState<Filter[]>([]);
+  const viewShotRef = useRef(null);
 
   const currentMedia = mediaItems[currentMediaIndex];
 
@@ -62,9 +66,27 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({ navigation, route })
     );
   }, []);
 
-  const handleSave = useCallback(() => {
-    // TODO: 저장 로직 구현
-    navigation.goBack();
+  const handleSave = useCallback(async () => {
+    try {
+      // 권한 요청
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        alert('갤러리 저장 권한이 필요합니다.');
+        return;
+      }
+      // 프리뷰 캡처
+      const uri = await viewShotRef.current.capture?.();
+      if (!uri) {
+        alert('이미지 캡처에 실패했습니다.');
+        return;
+      }
+      // 갤러리에 저장
+      await MediaLibrary.saveToLibraryAsync(uri);
+      alert('저장되었습니다!');
+      navigation.goBack();
+    } catch (e) {
+      alert('저장 중 오류 발생: ' + e);
+    }
   }, [navigation]);
 
   const handleNext = useCallback(() => {
@@ -99,7 +121,7 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({ navigation, route })
   );
 
   const renderMediaViewer = () => (
-    <View style={styles.mediaContainer}>
+    <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1 }} style={styles.mediaContainer}>
       {Platform.OS === 'web' ? (
         <WebFilteredImage
           uri={currentMedia.uri}
@@ -115,7 +137,7 @@ export const EditorScreen: React.FC<EditorScreenProps> = ({ navigation, route })
           height={(screenWidth - 32) * 0.75}
         />
       )}
-    </View>
+    </ViewShot>
   );
 
   const renderNavigation = () => (
